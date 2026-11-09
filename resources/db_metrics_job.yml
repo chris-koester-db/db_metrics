@@ -41,6 +41,8 @@ resources:
           default: ${var.sizing_low_queue_minutes_per_day}
         - name: sizing_serverless_auto_stop_minutes
           default: ${var.sizing_serverless_auto_stop_minutes}
+        - name: sizing_min_size
+          default: ${var.sizing_min_size}
 
       tasks:
         - task_key: dim_calendar
