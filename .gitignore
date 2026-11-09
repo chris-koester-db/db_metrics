@@ -1,0 +1,14 @@
+.databricks/
+.DS_Store
+.vscode/**
+typings/**
+src/__pycache__/
+scripts/
+scratch/
+references/
+.gitattributes
+HANDOFF-*.md
+.isaac/
+.env*
+.venv
+*.local.yml

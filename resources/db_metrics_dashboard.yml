@@ -1,0 +1,9 @@
+resources:
+  dashboards:
+    db_metrics_dashboard:
+      display_name: 'DB Metrics'
+      file_path: ../src/db_metrics.lvdash.json
+      parent_path: ${workspace.file_path}
+      warehouse_id: ${var.warehouse_id}
+      dataset_catalog: ${var.catalog}
+      dataset_schema: ${var.schema}

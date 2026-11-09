@@ -1,0 +1,2481 @@
+{
+  "datasets": [
+    {
+      "name": "warehouse_events_sql",
+      "displayName": "Warehouse Events",
+      "queryLines": [
+        "SELECT\n",
+        "  event_date,\n",
+        "  warehouse_id,\n",
+        "  event_type,\n",
+        "  MEASURE(`event_count`) AS event_count,\n",
+        "  MEASURE(`scale_up_events`) AS scale_up_events,\n",
+        "  MEASURE(`scale_down_events`) AS scale_down_events,\n",
+        "  MEASURE(`max_cluster_count`) AS max_cluster_count,\n",
+        "  MEASURE(`avg_cluster_count`) AS avg_cluster_count\n",
+        "FROM\n",
+        "  metv_warehouse_events\n",
+        "WHERE\n",
+        "  cardinality(:warehouse_id) = 0\n",
+        "  OR array_contains(:warehouse_id, `warehouse_id`)\n",
+        "GROUP BY\n",
+        "  ALL"
+      ],
+      "parameters": [
+        {
+          "displayName": "Warehouse ID",
+          "keyword": "warehouse_id",
+          "dataType": "STRING",
+          "complexType": "MULTI",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "query_perf_sql",
+      "displayName": "Query Performance",
+      "queryLines": [
+        "SELECT\n",
+        "  `query_date`,\n",
+        "  MEASURE(`query_count`) AS query_count,\n",
+        "  MEASURE(`p90_runtime_sec`) AS p90_runtime_sec,\n",
+        "  MEASURE(`p95_runtime_sec`) AS p95_runtime_sec,\n",
+        "  MEASURE(`max_runtime_sec`) AS max_runtime_sec,\n",
+        "  MEASURE(`queued_queries`) AS queued_queries,\n",
+        "  MEASURE(`spill_queries`) AS spill_queries,\n",
+        "  MEASURE(`cache_hit_pct`) AS cache_hit_pct,\n",
+        "  MEASURE(`failed_queries`) AS failed_queries,\n",
+        "  MEASURE(`avg_compile_sec`) AS avg_compile_sec,\n",
+        "  MEASURE(`avg_queue_sec`) AS avg_queue_sec,\n",
+        "  MEASURE(`avg_wait_compute_sec`) AS avg_wait_compute_sec,\n",
+        "  MEASURE(`p90_queue_sec`) AS p90_queue_sec,\n",
+        "  MEASURE(`p95_queue_sec`) AS p95_queue_sec\n",
+        "FROM\n",
+        "  metv_query_history\n",
+        "WHERE\n",
+        "  cardinality(:warehouse_id) = 0\n",
+        "  OR array_contains(:warehouse_id, `warehouse_id`)\n",
+        "GROUP BY\n",
+        "  ALL"
+      ],
+      "parameters": [
+        {
+          "displayName": "Warehouse ID",
+          "keyword": "warehouse_id",
+          "dataType": "STRING",
+          "complexType": "MULTI",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "warehouse_sizing_sql",
+      "displayName": "Warehouse Sizing",
+      "queryLines": [
+        "SELECT\n",
+        "  warehouse_name,\n",
+        "  warehouse_id,\n",
+        "  workspace_name,\n",
+        "  MEASURE(`recommendation`) AS recommendation,\n",
+        "  MEASURE(`recommendation_reason`) AS recommendation_reason,\n",
+        "  MEASURE(`config_type`) AS current_type,\n",
+        "  MEASURE(`config_size`) AS current_size,\n",
+        "  MEASURE(`config_min_clusters`) AS current_min_clusters,\n",
+        "  MEASURE(`config_max_clusters`) AS current_max_clusters,\n",
+        "  MEASURE(`config_auto_stop_minutes`) AS current_auto_stop_minutes,\n",
+        "  MEASURE(`recommended_type`) AS recommended_type,\n",
+        "  MEASURE(`recommended_size`) AS recommended_size,\n",
+        "  MEASURE(`recommended_min_clusters`) AS recommended_min_clusters,\n",
+        "  MEASURE(`recommended_max_clusters`) AS recommended_max_clusters,\n",
+        "  MEASURE(`recommended_auto_stop_minutes`) AS recommended_auto_stop_minutes,\n",
+        "  IF(MEASURE(`recommendation`) IN ('No change', 'Too little activity'), 0, 1) AS needs_change,\n",
+        "  MEASURE(`active_days`) AS active_days,\n",
+        "  MEASURE(`queries_per_day`) AS queries_per_day,\n",
+        "  MEASURE(`peak_queries_per_minute`) AS peak_queries_per_minute,\n",
+        "  MEASURE(`peak_5m_queries_per_minute`) AS peak_5m_queries_per_minute,\n",
+        "  MEASURE(`queue_minutes_per_day`) AS queue_minutes_per_day,\n",
+        "  MEASURE(`worst_day_p95_queue_seconds`) AS worst_day_p95_queue_seconds,\n",
+        "  MEASURE(`spill_gib_per_day`) AS spill_gib_per_day,\n",
+        "  MEASURE(`cold_start_minutes_per_day`) AS cold_start_minutes_per_day,\n",
+        "  MEASURE(`at_max_clusters_pct`) AS at_max_clusters_pct,\n",
+        "  MEASURE(`avg_running_clusters`) AS avg_running_clusters,\n",
+        "  MEASURE(`list_cost_usd`) AS list_cost_usd,\n",
+        "  MEASURE(`list_cost_usd_per_1k_queries`) AS list_cost_usd_per_1k_queries\n",
+        "FROM\n",
+        "  metv_warehouse_sizing\n",
+        "WHERE\n",
+        "  `is_current_config`\n",
+        "  AND `usage_date` >= date_sub(current_date(), :lookback_days)\n",
+        "  AND `usage_date` < current_date()\n",
+        "  AND (cardinality(:warehouse_id) = 0 OR array_contains(:warehouse_id, `warehouse_id`))\n",
+        "GROUP BY\n",
+        "  ALL\n",
+        ""
+      ],
+      "parameters": [
+        {
+          "displayName": "Lookback Days",
+          "keyword": "lookback_days",
+          "dataType": "INTEGER",
+          "defaultSelection": {
+            "values": {
+              "dataType": "INTEGER",
+              "values": [
+                {
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Warehouse ID",
+          "keyword": "warehouse_id",
+          "dataType": "STRING",
+          "complexType": "MULTI",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "warehouse_sizing_daily_sql",
+      "displayName": "Warehouse Sizing Daily",
+      "queryLines": [
+        "WITH daily AS (\n",
+        "  SELECT\n",
+        "    `usage_date`,\n",
+        "    `warehouse_id`,\n",
+        "    MEASURE(`query_count`) AS query_count,\n",
+        "    MEASURE(`queue_minutes`) AS queue_minutes,\n",
+        "    MEASURE(`peak_queries_per_minute`) AS peak_queries_per_minute,\n",
+        "    MEASURE(`hours_at_max_clusters`) AS hours_at_max_clusters,\n",
+        "    MEASURE(`avg_running_clusters`) AS avg_running_clusters,\n",
+        "    MEASURE(`list_cost_usd`) AS list_cost_usd\n",
+        "  FROM\n",
+        "    metv_warehouse_sizing\n",
+        "  WHERE\n",
+        "    `usage_date` >= date_sub(current_date(), :lookback_days)\n",
+        "    AND `usage_date` < current_date()\n",
+        "    AND (cardinality(:warehouse_id) = 0 OR array_contains(:warehouse_id, `warehouse_id`))\n",
+        "  GROUP BY\n",
+        "    ALL\n",
+        "),\n",
+        "-- One label per warehouse: its latest name, so a rename doesn't split it into two series, plus the warehouse ID when\n",
+        "-- warehouses in different workspaces share a name\n",
+        "latest_name AS (\n",
+        "  SELECT\n",
+        "    warehouse_id,\n",
+        "    IF(COUNT(*) OVER (PARTITION BY name) > 1, name || ' (' || warehouse_id || ')', name) AS warehouse_name\n",
+        "  FROM (\n",
+        "    SELECT\n",
+        "      `warehouse_id`,\n",
+        "      MAX_BY(`warehouse_name`, `usage_date`) AS name\n",
+        "    FROM (\n",
+        "      SELECT `warehouse_id`, `warehouse_name`, `usage_date`\n",
+        "      FROM metv_warehouse_sizing\n",
+        "      WHERE\n",
+        "        `usage_date` >= date_sub(current_date(), :lookback_days)\n",
+        "        AND `usage_date` < current_date()\n",
+        "      GROUP BY ALL\n",
+        "    )\n",
+        "    GROUP BY `warehouse_id`\n",
+        "  )\n",
+        "),\n",
+        "top_by_cost AS (\n",
+        "  SELECT warehouse_id\n",
+        "  FROM daily\n",
+        "  GROUP BY warehouse_id\n",
+        "  ORDER BY SUM(list_cost_usd) DESC\n",
+        "  LIMIT 8\n",
+        ")\n",
+        "SELECT\n",
+        "  daily.*,\n",
+        "  latest_name.warehouse_name\n",
+        "FROM daily\n",
+        "JOIN latest_name USING (warehouse_id)\n",
+        "WHERE warehouse_id IN (SELECT warehouse_id FROM top_by_cost)"
+      ],
+      "parameters": [
+        {
+          "displayName": "Lookback Days",
+          "keyword": "lookback_days",
+          "dataType": "INTEGER",
+          "defaultSelection": {
+            "values": {
+              "dataType": "INTEGER",
+              "values": [
+                {
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Warehouse ID",
+          "keyword": "warehouse_id",
+          "dataType": "STRING",
+          "complexType": "MULTI",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "sizing_rules_sql",
+      "displayName": "Sizing Rules",
+      "queryLines": [
+        "SELECT\n",
+        "  priority,\n",
+        "  recommendation,\n",
+        "  rule_condition,\n",
+        "  config_change\n",
+        "FROM\n",
+        "  sizing_rules\n",
+        "ORDER BY\n",
+        "  priority"
+      ]
+    },
+    {
+      "name": "sizing_thresholds_sql",
+      "displayName": "Sizing Thresholds",
+      "queryLines": [
+        "SELECT\n",
+        "  threshold_name,\n",
+        "  threshold_value,\n",
+        "  unit,\n",
+        "  used_by,\n",
+        "  description\n",
+        "FROM\n",
+        "  sizing_thresholds"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "6342a661",
+      "displayName": "Query Performance",
+      "layout": [
+        {
+          "widget": {
+            "name": "cnt_queries",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "query_perf_sql",
+                  "fields": [
+                    {
+                      "name": "sum(query_count)",
+                      "expression": "SUM(`query_count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Total Queries",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(query_count)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cnt_p90_rt",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "query_perf_sql",
+                  "fields": [
+                    {
+                      "name": "max(p90_runtime_sec)",
+                      "expression": "MAX(`p90_runtime_sec`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "P90 Runtime (sec)",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "max(p90_runtime_sec)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 1,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cnt_p95_rt",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "query_perf_sql",
+                  "fields": [
+                    {
+                      "name": "max(p95_runtime_sec)",
+                      "expression": "MAX(`p95_runtime_sec`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "P95 Runtime (sec)",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "max(p95_runtime_sec)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 1,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cnt_p90_q",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "query_perf_sql",
+                  "fields": [
+                    {
+                      "name": "max(p90_queue_sec)",
+                      "expression": "MAX(`p90_queue_sec`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "P90 Queue (sec)",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "max(p90_queue_sec)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 1,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cnt_p95_q",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "query_perf_sql",
+                  "fields": [
+                    {
+                      "name": "max(p95_queue_sec)",
+                      "expression": "MAX(`p95_queue_sec`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "P95 Queue (sec)",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "max(p95_queue_sec)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 10,
+            "y": 1,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cnt_cache",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "query_perf_sql",
+                  "fields": [
+                    {
+                      "name": "avg(cache_hit_pct)",
+                      "expression": "AVG(`cache_hit_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Cache Hit %",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg(cache_hit_pct)",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 1,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "line_runtime",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "query_perf_sql",
+                  "fields": [
+                    {
+                      "name": "query_date",
+                      "expression": "`query_date`"
+                    },
+                    {
+                      "name": "max(p90_runtime_sec)",
+                      "expression": "MAX(`p90_runtime_sec`)"
+                    },
+                    {
+                      "name": "max(p95_runtime_sec)",
+                      "expression": "MAX(`p95_runtime_sec`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Runtime Percentile Trend",
+                "showTitle": true
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "query_date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fields": [
+                    {
+                      "fieldName": "max(p90_runtime_sec)",
+                      "displayName": "P90 Runtime (sec)"
+                    },
+                    {
+                      "fieldName": "max(p95_runtime_sec)",
+                      "displayName": "P95 Runtime (sec)"
+                    }
+                  ],
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "line_queue",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "query_perf_sql",
+                  "fields": [
+                    {
+                      "name": "query_date",
+                      "expression": "`query_date`"
+                    },
+                    {
+                      "name": "max(p90_queue_sec)",
+                      "expression": "MAX(`p90_queue_sec`)"
+                    },
+                    {
+                      "name": "max(p95_queue_sec)",
+                      "expression": "MAX(`p95_queue_sec`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Queue Time Percentiles by Date",
+                "showTitle": true
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "query_date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fields": [
+                    {
+                      "fieldName": "max(p90_queue_sec)",
+                      "displayName": "P90 Queue (sec)"
+                    },
+                    {
+                      "fieldName": "max(p95_queue_sec)",
+                      "displayName": "P95 Queue (sec)"
+                    }
+                  ],
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 4,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "bar_volume",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "query_perf_sql",
+                  "fields": [
+                    {
+                      "name": "query_date",
+                      "expression": "`query_date`"
+                    },
+                    {
+                      "name": "sum(query_count)",
+                      "expression": "SUM(`query_count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Query Volume by Date",
+                "showTitle": true
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "query_date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(query_count)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 12,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "header1",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Query Performance Metrics"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "header2",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Query Trends Over Time"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 12,
+            "height": 1
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "warehouse_events",
+      "displayName": "Warehouse Events & Scaling",
+      "layout": [
+        {
+          "widget": {
+            "name": "cnt_scaleup",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_events_sql",
+                  "fields": [
+                    {
+                      "name": "sum(scale_up_events)",
+                      "expression": "SUM(`scale_up_events`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Scale Up Events",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(scale_up_events)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cnt_scaledn",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_events_sql",
+                  "fields": [
+                    {
+                      "name": "sum(scale_down_events)",
+                      "expression": "SUM(`scale_down_events`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Scale Down Events",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(scale_down_events)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 1,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cnt_maxcluster",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_events_sql",
+                  "fields": [
+                    {
+                      "name": "max(max_cluster_count)",
+                      "expression": "MAX(`max_cluster_count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Max Cluster Count",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "max(max_cluster_count)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 1,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cnt_avgcluster",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_events_sql",
+                  "fields": [
+                    {
+                      "name": "avg(avg_cluster_count)",
+                      "expression": "AVG(`avg_cluster_count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Avg Cluster Count",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg(avg_cluster_count)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 1,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "line_events",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_events_sql",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "sum(event_count)",
+                      "expression": "SUM(`event_count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Event Count by Date",
+                "showTitle": true
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "event_date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(event_count)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "line_clusters",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_events_sql",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "max(max_cluster_count)",
+                      "expression": "MAX(`max_cluster_count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Cluster Count Over Time",
+                "showTitle": true
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "event_date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "max(max_cluster_count)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 4,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "header1",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Warehouse Events & Scaling"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "header2",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Event Trends"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 12,
+            "height": 1
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "warehouse_sizing",
+      "displayName": "Right-Size Warehouses",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "header1",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Right-Size Warehouses"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "subtitle",
+            "multilineTextboxSpec": {
+              "lines": [
+                "One recommendation per warehouse for the lookback window (full days, UTC), judged on days under its **current configuration**. See **How Recommendations Work** for the rules, signals, and thresholds in effect. Costs are list prices."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "lookback_filter",
+            "queries": [
+              {
+                "name": "parameter_warehouse_sizing_sql_lookback_days",
+                "query": {
+                  "datasetName": "warehouse_sizing_sql",
+                  "parameters": [
+                    {
+                      "name": "lookback_days",
+                      "keyword": "lookback_days"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_warehouse_sizing_daily_sql_lookback_days",
+                "query": {
+                  "datasetName": "warehouse_sizing_daily_sql",
+                  "parameters": [
+                    {
+                      "name": "lookback_days",
+                      "keyword": "lookback_days"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Lookback Days",
+                "showTitle": true
+              },
+              "widgetType": "filter-text-entry",
+              "encodings": {
+                "fields": [
+                  {
+                    "parameterName": "lookback_days",
+                    "queryName": "parameter_warehouse_sizing_sql_lookback_days"
+                  },
+                  {
+                    "parameterName": "lookback_days",
+                    "queryName": "parameter_warehouse_sizing_daily_sql_lookback_days"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cnt_needs_change",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_sizing_sql",
+                  "fields": [
+                    {
+                      "name": "sum(needs_change)",
+                      "expression": "SUM(`needs_change`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Warehouses to Change",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(needs_change)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 3,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cnt_warehouses",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_sizing_sql",
+                  "fields": [
+                    {
+                      "name": "count(warehouse_id)",
+                      "expression": "COUNT(`warehouse_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Warehouses",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(warehouse_id)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cnt_cost",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_sizing_sql",
+                  "fields": [
+                    {
+                      "name": "sum(list_cost_usd)",
+                      "expression": "SUM(`list_cost_usd`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "List Cost, Current Configurations (USD)",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(list_cost_usd)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "abbreviation": "compact"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 3,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "bar_reco_count",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_sizing_sql",
+                  "fields": [
+                    {
+                      "name": "recommendation",
+                      "expression": "`recommendation`"
+                    },
+                    {
+                      "name": "count(warehouse_id)",
+                      "expression": "COUNT(`warehouse_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Warehouses by Recommendation",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "recommendation",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  },
+                  "displayName": "Recommendation"
+                },
+                "y": {
+                  "fieldName": "count(warehouse_id)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Warehouses"
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "bar_reco_cost",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_sizing_sql",
+                  "fields": [
+                    {
+                      "name": "recommendation",
+                      "expression": "`recommendation`"
+                    },
+                    {
+                      "name": "sum(list_cost_usd)",
+                      "expression": "SUM(`list_cost_usd`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "List Cost by Recommendation",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "recommendation",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  },
+                  "displayName": "Recommendation"
+                },
+                "y": {
+                  "fieldName": "sum(list_cost_usd)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "List Cost (USD)"
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 5,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "tbl_sizing",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_sizing_sql",
+                  "fields": [
+                    {
+                      "name": "warehouse_name",
+                      "expression": "`warehouse_name`"
+                    },
+                    {
+                      "name": "recommendation",
+                      "expression": "`recommendation`"
+                    },
+                    {
+                      "name": "recommendation_reason",
+                      "expression": "`recommendation_reason`"
+                    },
+                    {
+                      "name": "current_type",
+                      "expression": "`current_type`"
+                    },
+                    {
+                      "name": "current_size",
+                      "expression": "`current_size`"
+                    },
+                    {
+                      "name": "current_min_clusters",
+                      "expression": "`current_min_clusters`"
+                    },
+                    {
+                      "name": "current_max_clusters",
+                      "expression": "`current_max_clusters`"
+                    },
+                    {
+                      "name": "current_auto_stop_minutes",
+                      "expression": "`current_auto_stop_minutes`"
+                    },
+                    {
+                      "name": "recommended_type",
+                      "expression": "`recommended_type`"
+                    },
+                    {
+                      "name": "recommended_size",
+                      "expression": "`recommended_size`"
+                    },
+                    {
+                      "name": "recommended_min_clusters",
+                      "expression": "`recommended_min_clusters`"
+                    },
+                    {
+                      "name": "recommended_max_clusters",
+                      "expression": "`recommended_max_clusters`"
+                    },
+                    {
+                      "name": "recommended_auto_stop_minutes",
+                      "expression": "`recommended_auto_stop_minutes`"
+                    },
+                    {
+                      "name": "active_days",
+                      "expression": "`active_days`"
+                    },
+                    {
+                      "name": "queries_per_day",
+                      "expression": "`queries_per_day`"
+                    },
+                    {
+                      "name": "peak_queries_per_minute",
+                      "expression": "`peak_queries_per_minute`"
+                    },
+                    {
+                      "name": "peak_5m_queries_per_minute",
+                      "expression": "`peak_5m_queries_per_minute`"
+                    },
+                    {
+                      "name": "queue_minutes_per_day",
+                      "expression": "`queue_minutes_per_day`"
+                    },
+                    {
+                      "name": "worst_day_p95_queue_seconds",
+                      "expression": "`worst_day_p95_queue_seconds`"
+                    },
+                    {
+                      "name": "spill_gib_per_day",
+                      "expression": "`spill_gib_per_day`"
+                    },
+                    {
+                      "name": "cold_start_minutes_per_day",
+                      "expression": "`cold_start_minutes_per_day`"
+                    },
+                    {
+                      "name": "at_max_clusters_pct",
+                      "expression": "`at_max_clusters_pct`"
+                    },
+                    {
+                      "name": "avg_running_clusters",
+                      "expression": "`avg_running_clusters`"
+                    },
+                    {
+                      "name": "list_cost_usd",
+                      "expression": "`list_cost_usd`"
+                    },
+                    {
+                      "name": "list_cost_usd_per_1k_queries",
+                      "expression": "`list_cost_usd_per_1k_queries`"
+                    },
+                    {
+                      "name": "workspace_name",
+                      "expression": "`workspace_name`"
+                    },
+                    {
+                      "name": "warehouse_id",
+                      "expression": "`warehouse_id`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Recommendation per Warehouse",
+                "showTitle": true
+              },
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "warehouse_name",
+                    "displayName": "Warehouse"
+                  },
+                  {
+                    "fieldName": "recommendation",
+                    "displayName": "Recommendation"
+                  },
+                  {
+                    "fieldName": "recommendation_reason",
+                    "displayName": "Reason"
+                  },
+                  {
+                    "fieldName": "current_type",
+                    "displayName": "Type"
+                  },
+                  {
+                    "fieldName": "current_size",
+                    "displayName": "Size"
+                  },
+                  {
+                    "fieldName": "current_min_clusters",
+                    "displayName": "Min"
+                  },
+                  {
+                    "fieldName": "current_max_clusters",
+                    "displayName": "Max"
+                  },
+                  {
+                    "fieldName": "current_auto_stop_minutes",
+                    "displayName": "Auto-Stop"
+                  },
+                  {
+                    "fieldName": "recommended_type",
+                    "displayName": "Rec. Type"
+                  },
+                  {
+                    "fieldName": "recommended_size",
+                    "displayName": "Rec. Size"
+                  },
+                  {
+                    "fieldName": "recommended_min_clusters",
+                    "displayName": "Rec. Min"
+                  },
+                  {
+                    "fieldName": "recommended_max_clusters",
+                    "displayName": "Rec. Max"
+                  },
+                  {
+                    "fieldName": "recommended_auto_stop_minutes",
+                    "displayName": "Rec. Auto-Stop"
+                  },
+                  {
+                    "fieldName": "active_days",
+                    "displayName": "Active Days"
+                  },
+                  {
+                    "fieldName": "queries_per_day",
+                    "displayName": "Queries/Day"
+                  },
+                  {
+                    "fieldName": "peak_queries_per_minute",
+                    "displayName": "Peak QPM"
+                  },
+                  {
+                    "fieldName": "peak_5m_queries_per_minute",
+                    "displayName": "Peak QPM (5-min)"
+                  },
+                  {
+                    "fieldName": "queue_minutes_per_day",
+                    "displayName": "Queue Min/Day"
+                  },
+                  {
+                    "fieldName": "worst_day_p95_queue_seconds",
+                    "displayName": "Worst-Day p95 Queue (s)"
+                  },
+                  {
+                    "fieldName": "spill_gib_per_day",
+                    "displayName": "Spill GiB/Day"
+                  },
+                  {
+                    "fieldName": "cold_start_minutes_per_day",
+                    "displayName": "Cold Start Min/Day"
+                  },
+                  {
+                    "fieldName": "at_max_clusters_pct",
+                    "displayName": "Time at Max Clusters"
+                  },
+                  {
+                    "fieldName": "avg_running_clusters",
+                    "displayName": "Avg Clusters"
+                  },
+                  {
+                    "fieldName": "list_cost_usd",
+                    "displayName": "List Cost (USD)"
+                  },
+                  {
+                    "fieldName": "list_cost_usd_per_1k_queries",
+                    "displayName": "Cost per 1K Queries (USD)"
+                  },
+                  {
+                    "fieldName": "workspace_name",
+                    "displayName": "Workspace"
+                  },
+                  {
+                    "fieldName": "warehouse_id",
+                    "displayName": "Warehouse ID"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 12,
+            "height": 9
+          }
+        },
+        {
+          "widget": {
+            "name": "header2",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Daily Trends: Top 8 Warehouses by Cost, or the Selected Warehouses (All Configurations)"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 19,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "line_queue",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_sizing_daily_sql",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "warehouse_name",
+                      "expression": "`warehouse_name`"
+                    },
+                    {
+                      "name": "sum(queue_minutes)",
+                      "expression": "SUM(`queue_minutes`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Capacity Queue Minutes",
+                "showTitle": true
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "usage_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "fieldName": "sum(queue_minutes)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Queue Minutes"
+                },
+                "color": {
+                  "fieldName": "warehouse_name",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Warehouse"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 20,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "line_peak_qpm",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_sizing_daily_sql",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "warehouse_name",
+                      "expression": "`warehouse_name`"
+                    },
+                    {
+                      "name": "max(peak_queries_per_minute)",
+                      "expression": "MAX(`peak_queries_per_minute`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Peak Queries per Minute",
+                "showTitle": true
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "usage_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "fieldName": "max(peak_queries_per_minute)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Peak QPM"
+                },
+                "color": {
+                  "fieldName": "warehouse_name",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Warehouse"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 20,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "line_at_max",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_sizing_daily_sql",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "warehouse_name",
+                      "expression": "`warehouse_name`"
+                    },
+                    {
+                      "name": "sum(hours_at_max_clusters)",
+                      "expression": "SUM(`hours_at_max_clusters`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Hours at Max Clusters",
+                "showTitle": true
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "usage_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "fieldName": "sum(hours_at_max_clusters)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Hours"
+                },
+                "color": {
+                  "fieldName": "warehouse_name",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Warehouse"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 26,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "line_cost",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "warehouse_sizing_daily_sql",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "warehouse_name",
+                      "expression": "`warehouse_name`"
+                    },
+                    {
+                      "name": "sum(list_cost_usd)",
+                      "expression": "SUM(`list_cost_usd`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "List Cost (USD)",
+                "showTitle": true
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "usage_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "fieldName": "sum(list_cost_usd)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "List Cost (USD)"
+                },
+                "color": {
+                  "fieldName": "warehouse_name",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Warehouse"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 26,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ],
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "sizing_rules",
+      "displayName": "How Recommendations Work",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "header1",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## How Recommendations Work"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "intro",
+            "multilineTextboxSpec": {
+              "lines": [
+                "Each warehouse gets **one recommendation** for the lookback window on the Right-Size Warehouses page. The rules are checked in priority order and the **first match wins**. Only days under the warehouse's **current configuration** count, so evidence from before a configuration change doesn't drive the recommendation. Signals are normalized **per active day** (days with at least one query), so they don't depend on the window length."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "tbl_rules",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "sizing_rules_sql",
+                  "fields": [
+                    {
+                      "name": "priority",
+                      "expression": "`priority`"
+                    },
+                    {
+                      "name": "recommendation",
+                      "expression": "`recommendation`"
+                    },
+                    {
+                      "name": "rule_condition",
+                      "expression": "`rule_condition`"
+                    },
+                    {
+                      "name": "config_change",
+                      "expression": "`config_change`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Rules, in Priority Order",
+                "showTitle": true
+              },
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "priority",
+                    "displayName": "Priority"
+                  },
+                  {
+                    "fieldName": "recommendation",
+                    "displayName": "Recommendation"
+                  },
+                  {
+                    "fieldName": "rule_condition",
+                    "displayName": "When"
+                  },
+                  {
+                    "fieldName": "config_change",
+                    "displayName": "Change"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 12,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "signals",
+            "multilineTextboxSpec": {
+              "lines": [
+                "### Signals\n\n- **Queue minutes per day:** time statements waited for available capacity (`waiting_at_capacity_duration_ms`), summed across statements. 60 statements that each wait 1 minute count as 60 minutes.\n- **Worst-day p95 queue:** the highest daily 95th percentile of queue time. It shows how bad queueing gets on the peak day.\n- **Cold start minutes per day:** time statements waited for compute to start (`waiting_for_compute_duration_ms`), summed across statements.\n- **Spill GiB per day:** data spilled to local disk. Spill means the cluster size is too small for the queries.\n- **Time at max clusters:** share of running time at the configured max clusters, from `system.compute.warehouse_events`. Queueing at max clusters means too few clusters; queueing below max means scale-out lag at peaks.\n- **Cost:** list price from `system.billing.list_prices`, not negotiated price."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 12,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "tbl_thresholds",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "sizing_thresholds_sql",
+                  "fields": [
+                    {
+                      "name": "threshold_name",
+                      "expression": "`threshold_name`"
+                    },
+                    {
+                      "name": "threshold_value",
+                      "expression": "`threshold_value`"
+                    },
+                    {
+                      "name": "unit",
+                      "expression": "`unit`"
+                    },
+                    {
+                      "name": "used_by",
+                      "expression": "`used_by`"
+                    },
+                    {
+                      "name": "description",
+                      "expression": "`description`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Thresholds in Effect",
+                "showTitle": true
+              },
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "threshold_name",
+                    "displayName": "Bundle Variable"
+                  },
+                  {
+                    "fieldName": "threshold_value",
+                    "displayName": "Value"
+                  },
+                  {
+                    "fieldName": "unit",
+                    "displayName": "Unit"
+                  },
+                  {
+                    "fieldName": "used_by",
+                    "displayName": "Used By"
+                  },
+                  {
+                    "fieldName": "description",
+                    "displayName": "Description"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 15,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "acting",
+            "multilineTextboxSpec": {
+              "lines": [
+                "### Acting on a Recommendation\n\n- Change **one setting at a time**, then compare a week or more of data under the new configuration.\n- Recommendations move **one step**: one t-shirt size or one cluster. A warehouse far from the right size needs several rounds.\n- After **Size down**, check query latency on the Query Performance page.\n- **Lower auto-stop** saves idle time on serverless, which restarts in seconds. Keep longer auto-stop where a cold cache would hurt.\n- To tune the rules, change the `sizing_*` bundle variables and rerun the job. The tables on this page update to match."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 21,
+            "width": 12,
+            "height": 4
+          }
+        }
+      ],
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "global_filters",
+      "displayName": "Global Filters",
+      "layout": [
+        {
+          "widget": {
+            "name": "date_filter",
+            "queries": [
+              {
+                "name": "dashboards/01f17c97200a12f584c7108cb0ae915e/datasets/01f180c6cdc717058491a33133c48d94_query_date",
+                "query": {
+                  "datasetName": "query_perf_sql",
+                  "fields": [
+                    {
+                      "name": "query_date",
+                      "expression": "`query_date`"
+                    },
+                    {
+                      "name": "query_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f17c97200a12f584c7108cb0ae915e/datasets/01f180c6cda311c2a25fa1b45186af9c_event_date",
+                "query": {
+                  "datasetName": "warehouse_events_sql",
+                  "fields": [
+                    {
+                      "name": "event_date",
+                      "expression": "`event_date`"
+                    },
+                    {
+                      "name": "event_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Date Range",
+                "showTitle": true
+              },
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "query_date",
+                    "queryName": "dashboards/01f17c97200a12f584c7108cb0ae915e/datasets/01f180c6cdc717058491a33133c48d94_query_date"
+                  },
+                  {
+                    "fieldName": "event_date",
+                    "queryName": "dashboards/01f17c97200a12f584c7108cb0ae915e/datasets/01f180c6cda311c2a25fa1b45186af9c_event_date"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "wh_filter",
+            "queries": [
+              {
+                "name": "dashboards/01f17c97200a12f584c7108cb0ae915e/datasets/01f180c6cda311c2a25fa1b45186af9c_warehouse_id",
+                "query": {
+                  "datasetName": "warehouse_events_sql",
+                  "fields": [
+                    {
+                      "name": "warehouse_id",
+                      "expression": "`warehouse_id`"
+                    },
+                    {
+                      "name": "warehouse_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f17c97200a12f584c7108cb0ae915e/datasets/01f180c6cdc717058491a33133c48d94_warehouse_id",
+                "query": {
+                  "datasetName": "query_perf_sql",
+                  "parameters": [
+                    {
+                      "name": "warehouse_id",
+                      "keyword": "warehouse_id"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f17c97200a12f584c7108cb0ae915e/datasets/01f180c6cda311c2a25fa1b45186af9c_warehouse_id",
+                "query": {
+                  "datasetName": "warehouse_events_sql",
+                  "parameters": [
+                    {
+                      "name": "warehouse_id",
+                      "keyword": "warehouse_id"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_warehouse_sizing_sql_warehouse_id",
+                "query": {
+                  "datasetName": "warehouse_sizing_sql",
+                  "parameters": [
+                    {
+                      "name": "warehouse_id",
+                      "keyword": "warehouse_id"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_warehouse_sizing_daily_sql_warehouse_id",
+                "query": {
+                  "datasetName": "warehouse_sizing_daily_sql",
+                  "parameters": [
+                    {
+                      "name": "warehouse_id",
+                      "keyword": "warehouse_id"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Warehouse ID",
+                "showTitle": true
+              },
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "warehouse_id",
+                    "queryName": "dashboards/01f17c97200a12f584c7108cb0ae915e/datasets/01f180c6cda311c2a25fa1b45186af9c_warehouse_id"
+                  },
+                  {
+                    "parameterName": "warehouse_id",
+                    "queryName": "parameter_dashboards/01f17c97200a12f584c7108cb0ae915e/datasets/01f180c6cdc717058491a33133c48d94_warehouse_id"
+                  },
+                  {
+                    "parameterName": "warehouse_id",
+                    "queryName": "parameter_dashboards/01f17c97200a12f584c7108cb0ae915e/datasets/01f180c6cda311c2a25fa1b45186af9c_warehouse_id"
+                  },
+                  {
+                    "parameterName": "warehouse_id",
+                    "queryName": "parameter_warehouse_sizing_sql_warehouse_id"
+                  },
+                  {
+                    "parameterName": "warehouse_id",
+                    "queryName": "parameter_warehouse_sizing_daily_sql_warehouse_id"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 1
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#FAFAFB",
+        "dark": "#1F272D"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#11171C"
+      },
+      "widgetBorderColor": {
+        "light": "#FFFFFF",
+        "dark": "#11171C"
+      },
+      "fontColor": {
+        "light": "#000000",
+        "dark": "#E8ECF0"
+      },
+      "selectionColor": {
+        "light": "#2272B4",
+        "dark": "#8ACAFF"
+      },
+      "visualizationColors": [
+        "#077A9D",
+        "#FFAB00",
+        "#00A972",
+        "#FF3621",
+        "#8BCAE7",
+        "#AB4057",
+        "#99DDB4",
+        "#FCA4A1",
+        "#919191",
+        "#BF7080",
+        "#077A9D"
+      ],
+      "widgetHeaderAlignment": "CENTER"
+    },
+    "applyModeEnabled": false
+  }
+}

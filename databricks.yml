@@ -1,0 +1,97 @@
+# This is a Declarative Automation Bundle definition for db_metrics.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+bundle:
+  name: db_metrics
+  databricks_cli_version: ">= 0.281.0"
+  uuid: 01d7f08e-5e43-4ff9-b9dd-74efa0a90176
+
+include:
+  - resources/*.yml
+  - resources/*/*.yml
+  # Optional, git-ignored target overrides, such as targets.local.yml. See the README.
+  - "*.local.yml"
+
+sync:
+  exclude:
+    - src/*.lvdash.json
+
+# Variable declarations. These variables are assigned in the dev/prod targets below.
+variables:
+  warehouse_id:
+    description: Warehouse ID for SQL operations
+  catalog:
+    description: The catalog to use
+  schema:
+    description: The schema to use
+  materialize:
+    description: >-
+      'false' (default) creates the dim_*/fct_* objects as views over the system tables, so they are always current
+      and the job only needs to run once after deploy. 'true' creates them as tables that the daily job rebuilds;
+      set schedule_pause_status to UNPAUSED with it.
+    default: "false"
+  schedule_pause_status:
+    description: PAUSED or UNPAUSED. The daily schedule is only needed when materialize is 'true'.
+    default: PAUSED
+
+  # Warehouse sizing thresholds, used by metv_warehouse_sizing. Per-day values are per active day.
+  sizing_min_active_days:
+    description: Fewest active days in the date range for a warehouse to get a recommendation.
+    default: 5
+  sizing_cold_start_minutes_per_day:
+    description: Cold start minutes per day at or above which Classic/Pro warehouses should switch to serverless.
+    default: 5
+  sizing_spill_gib_per_day:
+    description: Spill GiB per day at or above which a warehouse should size up.
+    default: 1
+  sizing_queue_minutes_per_day:
+    description: Capacity queue minutes per day at or above which a warehouse needs more clusters.
+    default: 10
+  sizing_p95_queue_seconds:
+    description: Worst-day p95 capacity queue seconds at or above which a warehouse needs more clusters.
+    default: 10
+  sizing_at_max_clusters_pct:
+    description: Share of running time at max clusters (0-1) below which queueing calls for a higher min rather than a higher max.
+    default: 0.1
+  sizing_low_spill_gib_per_day:
+    description: Spill GiB per day at or below which a warehouse may size down.
+    default: 0.1
+  sizing_low_queue_minutes_per_day:
+    description: Capacity queue minutes per day at or below which a warehouse may size down.
+    default: 1
+  sizing_serverless_auto_stop_minutes:
+    description: Recommended auto-stop for serverless warehouses that are set higher.
+    default: 10
+
+# Replace the placeholder values below with your workspace, catalog, schema, and SQL warehouse, or override them in a
+# git-ignored *.local.yml file. See the README.
+targets:
+  dev:
+    # The default target uses 'mode: development' to create a development copy.
+    # - Deployed resources get prefixed with '[dev my_user_name]'
+    # - Any job schedules and triggers are paused by default.
+    # See also https://docs.databricks.com/dev-tools/bundles/deployment-modes.html.
+    mode: development
+    default: true
+    workspace:
+      host: https://your-workspace.cloud.databricks.com
+    variables:
+      warehouse_id:
+        lookup:
+          warehouse: "Your SQL Warehouse"
+      catalog: your_catalog
+      schema: your_schema
+
+  prod:
+    mode: production
+    workspace:
+      host: https://your-workspace.cloud.databricks.com
+      root_path: /Workspace/${bundle.name}
+    variables:
+      warehouse_id:
+        lookup:
+          warehouse: "Your SQL Warehouse"
+      catalog: your_catalog
+      schema: your_schema
+      # Optional: table mode with the daily refresh. See the README.
+      # materialize: "true"
+      # schedule_pause_status: UNPAUSED

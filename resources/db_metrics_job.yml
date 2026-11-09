@@ -1,0 +1,152 @@
+# A job running SQL queries on a SQL warehouse
+resources:
+  jobs:
+    db_metrics_job:
+      name: db_metrics
+
+      tags:
+        workload: db_metrics
+
+      trigger:
+        # https://docs.databricks.com/api/workspace/jobs/create#trigger
+        periodic:
+          interval: 1
+          unit: DAYS
+        pause_status: ${var.schedule_pause_status}
+
+      # Job-level parameters flow into the .sql files as named parameter
+      # markers (e.g. identifier(:catalog), identifier(:schema)).
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: schema
+          default: ${var.schema}
+        - name: materialize
+          default: ${var.materialize}
+        - name: sizing_min_active_days
+          default: ${var.sizing_min_active_days}
+        - name: sizing_cold_start_minutes_per_day
+          default: ${var.sizing_cold_start_minutes_per_day}
+        - name: sizing_spill_gib_per_day
+          default: ${var.sizing_spill_gib_per_day}
+        - name: sizing_queue_minutes_per_day
+          default: ${var.sizing_queue_minutes_per_day}
+        - name: sizing_p95_queue_seconds
+          default: ${var.sizing_p95_queue_seconds}
+        - name: sizing_at_max_clusters_pct
+          default: ${var.sizing_at_max_clusters_pct}
+        - name: sizing_low_spill_gib_per_day
+          default: ${var.sizing_low_spill_gib_per_day}
+        - name: sizing_low_queue_minutes_per_day
+          default: ${var.sizing_low_queue_minutes_per_day}
+        - name: sizing_serverless_auto_stop_minutes
+          default: ${var.sizing_serverless_auto_stop_minutes}
+
+      tasks:
+        - task_key: dim_calendar
+          sql_task:
+            file:
+              path: ../src/dim_calendar.sql
+              source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+        - task_key: dim_compute
+          sql_task:
+            file:
+              path: ../src/dim_compute.sql
+              source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+        - task_key: dim_workspace
+          sql_task:
+            file:
+              path: ../src/dim_workspace.sql
+              source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+        - task_key: fct_query_history
+          depends_on:
+            - task_key: dim_calendar
+            - task_key: dim_compute
+            - task_key: dim_workspace
+          sql_task:
+            file:
+              path: ../src/fct_query_history.sql
+              source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+        - task_key: fct_usage
+          depends_on:
+            - task_key: dim_calendar
+            - task_key: dim_compute
+            - task_key: dim_workspace
+          sql_task:
+            file:
+              path: ../src/fct_usage.sql
+              source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+        - task_key: fct_warehouse_events
+          depends_on:
+            - task_key: dim_calendar
+            - task_key: dim_compute
+            - task_key: dim_workspace
+          sql_task:
+            file:
+              path: ../src/fct_warehouse_events.sql
+              source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+        - task_key: fct_warehouse_daily
+          depends_on:
+            - task_key: fct_query_history
+            - task_key: fct_usage
+            - task_key: fct_warehouse_events
+          sql_task:
+            file:
+              path: ../src/fct_warehouse_daily.sql
+              source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+        - task_key: metv_query_history
+          depends_on:
+            - task_key: fct_query_history
+          sql_task:
+            file:
+              path: ../src/metv_query_history.sql
+              source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+        - task_key: metv_usage
+          depends_on:
+            - task_key: fct_usage
+          sql_task:
+            file:
+              path: ../src/metv_usage.sql
+              source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+        - task_key: metv_warehouse_events
+          depends_on:
+            - task_key: fct_warehouse_events
+          sql_task:
+            file:
+              path: ../src/metv_warehouse_events.sql
+              source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+        - task_key: metv_warehouse_sizing
+          depends_on:
+            - task_key: fct_warehouse_daily
+          sql_task:
+            file:
+              path: ../src/metv_warehouse_sizing.sql
+              source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+        - task_key: sizing_reference
+          sql_task:
+            file:
+              path: ../src/sizing_reference.sql
+              source: WORKSPACE
+            warehouse_id: ${var.warehouse_id}
+        - task_key: refresh_dashboard
+          depends_on:
+            - task_key: sizing_reference
+            - task_key: metv_query_history
+            - task_key: metv_usage
+            - task_key: metv_warehouse_events
+            - task_key: metv_warehouse_sizing
+          dashboard_task:
+            subscription: {}
+            warehouse_id: ${var.warehouse_id}
+            dashboard_id: ${resources.dashboards.db_metrics_dashboard.id}
