@@ -58,6 +58,11 @@ variables:
   sizing_low_queue_minutes_per_day:
     description: Capacity queue minutes per day at or below which a warehouse may size down.
     default: 1
+  sizing_min_size:
+    description: >-
+      Smallest warehouse size that Size down recommends, and below which a warehouse is flagged. MEDIUM by default,
+      the recommended minimum for important workloads. One of 2X_SMALL, X_SMALL, SMALL, MEDIUM, LARGE, and so on.
+    default: MEDIUM
   sizing_serverless_auto_stop_minutes:
     description: Recommended auto-stop for serverless warehouses that are set higher.
     default: 10

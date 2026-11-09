@@ -10,8 +10,9 @@
 --   5. Queueing below max clusters     -> one more min cluster (scale-out lag at peaks). Needs warehouse event
 --                                         data showing little time at max clusters, and min below max.
 --   6. Other queueing                  -> one more max cluster
---   7. Low pressure                    -> one size down
+--   7. Low pressure                    -> one size down, but not below sizing_min_size
 --   8. Serverless auto-stop too long   -> lower auto-stop
+-- Warehouses smaller than sizing_min_size are flagged (is_below_min_size) but not sized up without evidence.
 -- Recommendations use the latest configuration in the filtered range, so filter to is_current_config = true to
 -- judge the current configuration on evidence gathered under it.
 
@@ -20,6 +21,11 @@ use schema identifier(:schema);
 
 -- Quoted catalog.schema for the YAML sources, so names that need quoting (such as a hyphen) still resolve
 declare or replace schema_path string = '`' || replace(:catalog, '`', '``') || '`.`' || replace(:schema, '`', '``') || '`';
+-- Minimum warehouse size, as its position in the size order (1 = 2X_SMALL). Fail early on an unknown size.
+declare or replace min_size string = upper(:sizing_min_size);
+declare or replace min_size_rank int = array_position(array('2X_SMALL', 'X_SMALL', 'SMALL', 'MEDIUM', 'LARGE', 'X_LARGE', '2X_LARGE', '3X_LARGE', '4X_LARGE', '5X_LARGE'), min_size);
+select if(min_size_rank = 0, raise_error('sizing_min_size must be one of 2X_SMALL, X_SMALL, SMALL, MEDIUM, LARGE, X_LARGE, 2X_LARGE, 3X_LARGE, 4X_LARGE, or 5X_LARGE, not ' || min_size), min_size) as sizing_min_size;
+
 declare or replace qry_str string;
 
 set var qry_str =
@@ -260,6 +266,11 @@ set var qry_str =
       display_name: Auto-Stop Minutes
       comment: Auto-stop minutes of the latest configuration in the filtered range.
 
+    - name: config_size_rank
+      expr: ARRAY_POSITION(ARRAY('2X_SMALL', 'X_SMALL', 'SMALL', 'MEDIUM', 'LARGE', 'X_LARGE', '2X_LARGE', '3X_LARGE', '4X_LARGE', '5X_LARGE'), MEASURE(config_size))
+      display_name: Size Rank
+      comment: Position of the latest size in the size order, from 1 (2X_SMALL) to 10 (5X_LARGE).
+
     # Sizing signals, compared with the sizing_* thresholds
     - name: has_enough_activity
       expr: MEASURE(active_days) >= " || cast(:sizing_min_active_days as int) || "
@@ -288,6 +299,13 @@ set var qry_str =
         AND COALESCE(MEASURE(worst_day_p95_queue_seconds), 0) < " || cast(:sizing_p95_queue_seconds as double) || "
       display_name: Is Low Pressure
       comment: True when spill and queueing are both negligible, so a smaller size is likely enough.
+    - name: is_below_min_size
+      expr: MEASURE(config_size_rank) < " || min_size_rank || "
+      display_name: Is Below Min Size
+      comment: True when the warehouse is smaller than " || min_size || ", the minimum size set by sizing_min_size. Databricks recommends Medium or larger for important workloads, because smaller sizes run on smaller instances. Flag only. Without spill or queueing, the warehouse is not told to size up.
+      synonyms:
+        - below minimum size
+        - undersized
 
     # Recommendation
     - name: next_size_up
@@ -317,7 +335,7 @@ set var qry_str =
           WHEN MEASURE(has_spill_pressure) AND MEASURE(config_size) <> '5X_LARGE' THEN 'Size up'
           WHEN MEASURE(has_queue_pressure) AND MEASURE(has_scale_out_lag) THEN 'Add a min cluster'
           WHEN MEASURE(has_queue_pressure) THEN 'Add a max cluster'
-          WHEN MEASURE(is_low_pressure) AND MEASURE(config_size) <> '2X_SMALL' THEN 'Size down'
+          WHEN MEASURE(is_low_pressure) AND MEASURE(config_size_rank) > " || min_size_rank || " THEN 'Size down'
           WHEN MEASURE(config_type) = 'SERVERLESS' AND MEASURE(config_auto_stop_minutes) > " || cast(:sizing_serverless_auto_stop_minutes as int) || " THEN 'Lower auto-stop'
           ELSE 'No change'
         END
@@ -356,16 +374,18 @@ set var qry_str =
     - name: recommendation_reason
       expr: >-
         COALESCE(CASE MEASURE(recommendation)
-          WHEN 'Too little activity' THEN 'Active on ' || MEASURE(active_days) || ' days, fewer than the ' || " || cast(:sizing_min_active_days as int) || " || ' required'
+          WHEN 'Too little activity' THEN 'Active on ' || MEASURE(active_days) || ' days, fewer than the ' || " || cast(:sizing_min_active_days as int) || " || ' required.'
           WHEN 'Switch to serverless' THEN 'Cold starts of ' || FORMAT_NUMBER(MEASURE(cold_start_minutes_per_day), 1) || ' min/day on ' || MEASURE(config_type) || '. Serverless starts in seconds. Alternatively, raise auto-stop.'
-          WHEN 'Size up and add a max cluster' THEN 'Spill of ' || FORMAT_NUMBER(MEASURE(spill_gib_per_day), 1) || ' GiB/day and capacity queue of ' || FORMAT_NUMBER(MEASURE(queue_minutes_per_day), 1) || ' min/day (worst-day p95 ' || FORMAT_NUMBER(MEASURE(worst_day_p95_queue_seconds), 1) || ' s)'
-          WHEN 'Size up' THEN 'Spill of ' || FORMAT_NUMBER(MEASURE(spill_gib_per_day), 1) || ' GiB/day, with ' || FORMAT_NUMBER(MEASURE(spill_query_pct) * 100, 1) || '% of queries spilling'
-          WHEN 'Add a max cluster' THEN 'Capacity queue of ' || FORMAT_NUMBER(MEASURE(queue_minutes_per_day), 1) || ' min/day (worst-day p95 ' || FORMAT_NUMBER(MEASURE(worst_day_p95_queue_seconds), 1) || ' s), time at max clusters ' || COALESCE(FORMAT_NUMBER(MEASURE(at_max_clusters_pct) * 100, 0) || '%', 'unknown (no warehouse events)')
+          WHEN 'Size up and add a max cluster' THEN 'Spill of ' || FORMAT_NUMBER(MEASURE(spill_gib_per_day), 1) || ' GiB/day and capacity queue of ' || FORMAT_NUMBER(MEASURE(queue_minutes_per_day), 1) || ' min/day (worst-day p95 ' || FORMAT_NUMBER(MEASURE(worst_day_p95_queue_seconds), 1) || ' s).'
+          WHEN 'Size up' THEN 'Spill of ' || FORMAT_NUMBER(MEASURE(spill_gib_per_day), 1) || ' GiB/day, with ' || FORMAT_NUMBER(MEASURE(spill_query_pct) * 100, 1) || '% of queries spilling.'
+          WHEN 'Add a max cluster' THEN 'Capacity queue of ' || FORMAT_NUMBER(MEASURE(queue_minutes_per_day), 1) || ' min/day (worst-day p95 ' || FORMAT_NUMBER(MEASURE(worst_day_p95_queue_seconds), 1) || ' s), time at max clusters ' || COALESCE(FORMAT_NUMBER(MEASURE(at_max_clusters_pct) * 100, 0) || '%', 'unknown (no warehouse events)') || '.'
           WHEN 'Add a min cluster' THEN 'Capacity queue of ' || FORMAT_NUMBER(MEASURE(queue_minutes_per_day), 1) || ' min/day (worst-day p95 ' || FORMAT_NUMBER(MEASURE(worst_day_p95_queue_seconds), 1) || ' s) while at max clusters only ' || FORMAT_NUMBER(MEASURE(at_max_clusters_pct) * 100, 0) || '% of running time. Queueing below max points to scale-out lag at peaks.'
           WHEN 'Size down' THEN 'Spill of ' || FORMAT_NUMBER(MEASURE(spill_gib_per_day), 2) || ' GiB/day and capacity queue of ' || FORMAT_NUMBER(MEASURE(queue_minutes_per_day), 1) || ' min/day. Check latency after the change.'
-          WHEN 'Lower auto-stop' THEN 'Serverless restarts in seconds, so idle minutes past ' || " || cast(:sizing_serverless_auto_stop_minutes as int) || " || ' cost more than they save'
-          ELSE 'Signals are within thresholds'
-        END, 'Some signals are missing for this warehouse')
+          WHEN 'Lower auto-stop' THEN 'Serverless restarts in seconds, so idle minutes past ' || " || cast(:sizing_serverless_auto_stop_minutes as int) || " || ' cost more than they save.'
+          ELSE 'Signals are within thresholds.'
+        END, 'Some signals are missing for this warehouse.')
+        || IF(ARRAY_POSITION(ARRAY('2X_SMALL', 'X_SMALL', 'SMALL', 'MEDIUM', 'LARGE', 'X_LARGE', '2X_LARGE', '3X_LARGE', '4X_LARGE', '5X_LARGE'), MEASURE(recommended_size)) < " || min_size_rank || ",
+          ' Below " || min_size || ", the recommended minimum size for important workloads.', '')
       display_name: Recommendation Reason
       comment: The evidence behind the recommendation, with the numbers that triggered it.
       synonyms:

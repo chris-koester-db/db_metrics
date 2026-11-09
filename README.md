@@ -57,7 +57,7 @@ Each warehouse gets one recommendation. The rules are checked in this order, and
 | 4 | Size up | Spill of at least `sizing_spill_gib_per_day`, and size below 5X_LARGE | Size up one |
 | 5 | Add a min cluster | Queueing, at max clusters less than `sizing_at_max_clusters_pct` of running time, and min clusters below max | Min clusters +1 |
 | 6 | Add a max cluster | Any other queueing, including warehouses without warehouse event data | Max clusters +1 |
-| 7 | Size down | Spill of at most `sizing_low_spill_gib_per_day`, queue of at most `sizing_low_queue_minutes_per_day`, worst-day p95 queue below `sizing_p95_queue_seconds`, and size above 2X_SMALL | Size down one |
+| 7 | Size down | Spill of at most `sizing_low_spill_gib_per_day`, queue of at most `sizing_low_queue_minutes_per_day`, worst-day p95 queue below `sizing_p95_queue_seconds`, and size above `sizing_min_size` | Size down one |
 | 8 | Lower auto-stop | Serverless, with auto-stop above `sizing_serverless_auto_stop_minutes` | Auto-stop to `sizing_serverless_auto_stop_minutes` |
 | 9 | No change | No rule above matches | None |
 
@@ -65,6 +65,13 @@ Each warehouse gets one recommendation. The rules are checked in this order, and
 `sizing_p95_queue_seconds`. Rule 5 separates scale-out lag (queueing while clusters are still available) from too few
 clusters (queueing at max). Raising min clusters keeps capacity warm for peaks, such as when many BI users open
 dashboards at once.
+
+**Minimum size.** Databricks generally recommends Medium or larger for important workloads, because smaller sizes run on
+smaller instances, with less local cache, memory, and network bandwidth. Rule 7 never recommends a size below
+`sizing_min_size` (Medium by default). Smaller warehouses are flagged with `is_below_min_size`, shown as **Below Min
+Size** on the dashboard, but they're only told to size up when spill shows they need it. That way, small dev and test
+warehouses don't get size-up advice without evidence. Lower `sizing_min_size` if your small warehouses don't run
+important workloads.
 
 ### Signals
 
@@ -98,6 +105,7 @@ points; calibrate them against your own workload.
 | `sizing_low_spill_gib_per_day` | 0.1 | GiB per active day |
 | `sizing_low_queue_minutes_per_day` | 1 | minutes per active day |
 | `sizing_serverless_auto_stop_minutes` | 10 | minutes |
+| `sizing_min_size` | MEDIUM | warehouse size |
 
 The job also writes the rules and thresholds in effect to the `sizing_rules` and `sizing_thresholds` views, so the
 dashboard and Genie Agents always show what the metric view uses.

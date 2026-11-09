@@ -97,6 +97,7 @@
         "  MEASURE(`recommended_max_clusters`) AS recommended_max_clusters,\n",
         "  MEASURE(`recommended_auto_stop_minutes`) AS recommended_auto_stop_minutes,\n",
         "  IF(MEASURE(`recommendation`) IN ('No change', 'Too little activity'), 0, 1) AS needs_change,\n",
+        "  MEASURE(`is_below_min_size`) AS below_min_size,\n",
         "  MEASURE(`active_days`) AS active_days,\n",
         "  MEASURE(`queries_per_day`) AS queries_per_day,\n",
         "  MEASURE(`peak_queries_per_minute`) AS peak_queries_per_minute,\n",
@@ -1558,6 +1559,10 @@
                       "expression": "`recommended_auto_stop_minutes`"
                     },
                     {
+                      "name": "below_min_size",
+                      "expression": "`below_min_size`"
+                    },
+                    {
                       "name": "active_days",
                       "expression": "`active_days`"
                     },
@@ -1678,6 +1683,10 @@
                   {
                     "fieldName": "recommended_auto_stop_minutes",
                     "displayName": "Rec. Auto-Stop"
+                  },
+                  {
+                    "fieldName": "below_min_size",
+                    "displayName": "Below Min Size"
                   },
                   {
                     "fieldName": "active_days",
@@ -2235,7 +2244,7 @@
             "name": "acting",
             "multilineTextboxSpec": {
               "lines": [
-                "### Acting on a Recommendation\n\n- Change **one setting at a time**, then compare a week or more of data under the new configuration.\n- Recommendations move **one step**: one t-shirt size or one cluster. A warehouse far from the right size needs several rounds.\n- After **Size down**, check query latency on the Query Performance page.\n- **Lower auto-stop** saves idle time on serverless, which restarts in seconds. Keep longer auto-stop where a cold cache would hurt.\n- To tune the rules, change the `sizing_*` bundle variables and rerun the job. The tables on this page update to match."
+                "### Acting on a Recommendation\n\n- Change **one setting at a time**, then compare a week or more of data under the new configuration.\n- Recommendations move **one step**: one t-shirt size or one cluster. A warehouse far from the right size needs several rounds.\n- After **Size down**, check query latency on the Query Performance page.\n- **Size down** never goes below the minimum size (`sizing_min_size`, Medium by default). Databricks recommends Medium or larger for important workloads, because smaller sizes run on smaller instances. Smaller warehouses are flagged as **Below Min Size**, but they're only told to size up when spill shows they need it.\n- **Lower auto-stop** saves idle time on serverless, which restarts in seconds. Keep longer auto-stop where a cold cache would hurt.\n- To tune the rules, change the `sizing_*` bundle variables and rerun the job. The tables on this page update to match."
               ]
             }
           },
@@ -2243,7 +2252,7 @@
             "x": 0,
             "y": 21,
             "width": 12,
-            "height": 4
+            "height": 5
           }
         }
       ],
