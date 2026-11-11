@@ -7,7 +7,6 @@
         "SELECT\n",
         "  event_date,\n",
         "  warehouse_id,\n",
-        "  event_type,\n",
         "  MEASURE(`event_count`) AS event_count,\n",
         "  MEASURE(`scale_up_events`) AS scale_up_events,\n",
         "  MEASURE(`scale_down_events`) AS scale_down_events,\n",
